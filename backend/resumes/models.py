@@ -39,3 +39,21 @@ class Resume(models.Model):
 	@staticmethod
 	def clean_original_filename(filename):
 		return PurePosixPath(str(filename).replace('\\', '/')).name[:255]
+
+
+class ResumeAnalysis(models.Model):
+	resume = models.OneToOneField(Resume, on_delete=models.CASCADE, related_name='analysis')
+	personal_info = models.JSONField(default=dict)
+	summary = models.TextField(blank=True, null=True)
+	skills = models.JSONField(default=list)
+	education = models.JSONField(default=list)
+	experience = models.JSONField(default=list)
+	projects = models.JSONField(default=list)
+	certifications = models.JSONField(default=list)
+	languages = models.JSONField(default=list)
+	keywords = models.JSONField(default=list)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	def __str__(self):
+		return f'Analysis for {self.resume}'

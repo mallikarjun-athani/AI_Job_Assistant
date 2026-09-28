@@ -3,11 +3,24 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import SuspiciousFileOperation
+from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from ai_assistant.services import (
+	AIAnalysisTimedOut,
+	AIRateLimited,
+	AIServiceNotConfigured,
+	GroqResumeAnalyzer,
+	GroqServiceUnavailable,
+	InvalidAIResponse,
+	ResumeAnalysisError,
+	ResumeTextTooLarge,
+)
 
 from .forms import ResumeUploadForm
-from .models import Resume
+from .models import Resume, ResumeAnalysis
 from .services import ResumeExtractionError, extract_resume_text
 
 
@@ -16,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def resume_list(request):
-	resumes = Resume.objects.filter(user=request.user)
+	resumes = Resume.objects.filter(user=request.user).select_related('analysis')
 	form = ResumeUploadForm(request.POST or None, request.FILES or None)
 
 	if request.method == 'POST' and form.is_valid():
@@ -42,6 +55,53 @@ def resume_list(request):
 				return redirect('resumes:resume_list')
 
 	return render(request, 'resumes/resume_list.html', {'form': form, 'resumes': resumes})
+
+
+@login_required
+@require_POST
+def resume_analyze(request, pk):
+	resume = get_object_or_404(Resume, pk=pk, user=request.user)
+	if not resume.extracted_text or not resume.extracted_text.strip():
+		messages.error(request, 'This resume does not contain enough text to analyze.')
+		return redirect('resumes:resume_detail', pk=resume.pk)
+
+	logger.info('Resume analysis started for resume_id=%s user_id=%s.', resume.pk, request.user.pk)
+	try:
+		analysis_data = GroqResumeAnalyzer().analyze_resume(resume.extracted_text)
+	except AIServiceNotConfigured:
+		message = 'AI service is not configured. Please contact the administrator.'
+	except ResumeTextTooLarge:
+		message = 'This resume is too large to analyze in one request.'
+	except AIAnalysisTimedOut:
+		message = 'AI analysis timed out. Please try again.'
+	except AIRateLimited:
+		message = 'AI service is temporarily busy. Please try again later.'
+	except InvalidAIResponse:
+		message = 'AI returned an invalid response. Please try again.'
+	except (GroqServiceUnavailable, ResumeAnalysisError):
+		message = 'Unable to analyze the resume right now. Please try again.'
+	else:
+		with transaction.atomic():
+			analysis, _ = ResumeAnalysis.objects.update_or_create(
+				resume=resume,
+				defaults=analysis_data,
+			)
+		logger.info('Resume analysis completed for resume_id=%s user_id=%s.', resume.pk, request.user.pk)
+		messages.success(request, 'Resume analysis is ready.')
+		return redirect('resumes:resume_analysis', pk=resume.pk)
+
+	logger.warning('Resume analysis failed for resume_id=%s user_id=%s.', resume.pk, request.user.pk)
+	messages.error(request, message)
+	return redirect('resumes:resume_detail', pk=resume.pk)
+
+
+@login_required
+def resume_analysis(request, pk):
+	analysis = get_object_or_404(
+		ResumeAnalysis.objects.select_related('resume').filter(resume__user=request.user),
+		resume_id=pk,
+	)
+	return render(request, 'resumes/resume_analysis.html', {'analysis': analysis, 'resume': analysis.resume})
 
 
 @login_required

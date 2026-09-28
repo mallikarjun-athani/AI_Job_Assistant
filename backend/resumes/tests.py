@@ -1,5 +1,8 @@
 from io import BytesIO
+import json
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pymupdf
 from docx import Document
@@ -7,9 +10,18 @@ from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 
+from ai_assistant.services import (
+	AIAnalysisTimedOut,
+	AIRateLimited,
+	AIServiceNotConfigured,
+	GroqResumeAnalyzer,
+	GroqServiceUnavailable,
+	InvalidAIResponse,
+	ResumeTextTooLarge,
+)
 from accounts.models import User
 
-from .models import Resume
+from .models import Resume, ResumeAnalysis
 from .services import extract_docx_text, extract_pdf_text
 from .views import resume_download
 
@@ -229,6 +241,233 @@ class ResumeFlowTests(TestCase):
 		self.assertContains(response, 'Total Resumes: 1')
 		self.assertContains(response, reverse('resumes:resume_list'))
 
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_authenticated_user_can_analyze_own_resume(self, analyze_resume):
+		analyze_resume.return_value = sample_analysis()
+		resume = self.create_owned_resume()
+
+		response = self.client.post(reverse('resumes:resume_analyze', args=[resume.pk]))
+
+		self.assertRedirects(response, reverse('resumes:resume_analysis', args=[resume.pk]))
+		analysis = ResumeAnalysis.objects.get(resume=resume)
+		self.assertEqual(analysis.personal_info['name'], 'Test User')
+		self.assertEqual(analysis.skills, ['Python', 'Django'])
+		analyze_resume.assert_called_once_with(resume.extracted_text)
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_unauthenticated_user_cannot_analyze(self, analyze_resume):
+		resume = self.create_owned_resume()
+		self.client.logout()
+
+		response = self.client.post(reverse('resumes:resume_analyze', args=[resume.pk]))
+
+		self.assertRedirects(
+			response,
+			f'{reverse("login")}?next={reverse("resumes:resume_analyze", args=[resume.pk])}',
+		)
+		analyze_resume.assert_not_called()
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_user_cannot_analyze_another_users_resume(self, analyze_resume):
+		other_resume = self.create_owned_resume(user=self.create_user('another@example.com'))
+
+		response = self.client.post(reverse('resumes:resume_analyze', args=[other_resume.pk]))
+
+		self.assertEqual(response.status_code, 404)
+		analyze_resume.assert_not_called()
+
+	def test_user_cannot_view_another_users_analysis(self):
+		other_resume = self.create_owned_resume(user=self.create_user('another@example.com'))
+		ResumeAnalysis.objects.create(resume=other_resume, **sample_analysis())
+
+		response = self.client.get(reverse('resumes:resume_analysis', args=[other_resume.pk]))
+
+		self.assertEqual(response.status_code, 404)
+
+	def test_analysis_page_requires_authentication(self):
+		resume = self.create_owned_resume()
+		ResumeAnalysis.objects.create(resume=resume, **sample_analysis())
+		self.client.logout()
+
+		response = self.client.get(reverse('resumes:resume_analysis', args=[resume.pk]))
+
+		analysis_url = reverse('resumes:resume_analysis', args=[resume.pk])
+		self.assertRedirects(response, f'{reverse("login")}?next={analysis_url}')
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_analyze_endpoint_requires_post(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.get(reverse('resumes:resume_analyze', args=[resume.pk]))
+
+		self.assertEqual(response.status_code, 405)
+		analyze_resume.assert_not_called()
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_empty_extracted_text_is_rejected(self, analyze_resume):
+		resume = self.create_owned_resume(extracted_text='  \n ')
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'This resume does not contain enough text to analyze.')
+		self.assertFalse(ResumeAnalysis.objects.filter(resume=resume).exists())
+		analyze_resume.assert_not_called()
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume')
+	def test_reanalysis_updates_existing_analysis(self, analyze_resume):
+		resume = self.create_owned_resume()
+		old_analysis = ResumeAnalysis.objects.create(resume=resume, **sample_analysis('First summary'))
+		analyze_resume.return_value = sample_analysis('Updated summary')
+
+		response = self.client.post(reverse('resumes:resume_analyze', args=[resume.pk]))
+
+		self.assertRedirects(response, reverse('resumes:resume_analysis', args=[resume.pk]))
+		old_analysis.refresh_from_db()
+		self.assertEqual(old_analysis.summary, 'Updated summary')
+		self.assertEqual(ResumeAnalysis.objects.filter(resume=resume).count(), 1)
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume', side_effect=InvalidAIResponse)
+	def test_invalid_ai_response_is_not_saved(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'AI returned an invalid response. Please try again.')
+		self.assertFalse(ResumeAnalysis.objects.filter(resume=resume).exists())
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume', side_effect=GroqServiceUnavailable)
+	def test_groq_api_error_is_handled(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'Unable to analyze the resume right now. Please try again.')
+		self.assertFalse(ResumeAnalysis.objects.filter(resume=resume).exists())
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume', side_effect=AIAnalysisTimedOut)
+	def test_groq_timeout_is_handled(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'AI analysis timed out. Please try again.')
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume', side_effect=AIRateLimited)
+	def test_groq_rate_limit_is_handled(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'AI service is temporarily busy. Please try again later.')
+
+	@patch('ai_assistant.services.Groq')
+	def test_missing_groq_configuration_is_handled_without_api_call(self, groq_client):
+		resume = self.create_owned_resume()
+		with override_settings(GROQ_API_KEY=''):
+			response = self.client.post(
+				reverse('resumes:resume_analyze', args=[resume.pk]),
+				follow=True,
+			)
+
+		self.assertContains(response, 'AI service is not configured. Please contact the administrator.')
+		groq_client.assert_not_called()
+
+	@patch('ai_assistant.services.Groq')
+	def test_groq_invalid_json_is_rejected(self, groq_client):
+		groq_client.return_value.chat.completions.create.return_value = SimpleNamespace(
+			choices=[SimpleNamespace(message=SimpleNamespace(content='not-json'))],
+		)
+		with override_settings(GROQ_API_KEY='test-key', GROQ_MODEL='test-model'):
+			with self.assertRaises(InvalidAIResponse):
+				GroqResumeAnalyzer().analyze_resume('A resume with enough text.')
+
+	@patch('ai_assistant.services.Groq')
+	def test_groq_response_with_invalid_schema_is_rejected(self, groq_client):
+		invalid_data = sample_analysis()
+		invalid_data['skills'] = 'Python'
+		groq_client.return_value.chat.completions.create.return_value = SimpleNamespace(
+			choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(invalid_data)))],
+		)
+		with override_settings(GROQ_API_KEY='test-key', GROQ_MODEL='test-model'):
+			with self.assertRaises(InvalidAIResponse):
+				GroqResumeAnalyzer().analyze_resume('A resume with enough text.')
+
+	def test_resume_input_size_limit_rejects_without_truncation(self):
+		with patch('ai_assistant.services.MAX_RESUME_ANALYSIS_CHARS', 5):
+			with self.assertRaises(ResumeTextTooLarge):
+				GroqResumeAnalyzer().analyze_resume('This input is too long.')
+
+	@patch('ai_assistant.services.Groq')
+	def test_groq_request_uses_configured_model_and_strict_schema(self, groq_client):
+		groq_client.return_value.chat.completions.create.return_value = SimpleNamespace(
+			choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(sample_analysis())))],
+		)
+		with override_settings(GROQ_API_KEY='test-key', GROQ_MODEL='configured-model'):
+			result = GroqResumeAnalyzer().analyze_resume('  Jordan   Candidate\n\n\nPython  ')
+
+		request = groq_client.return_value.chat.completions.create.call_args.kwargs
+		self.assertEqual(request['model'], 'configured-model')
+		self.assertEqual(request['response_format']['type'], 'json_schema')
+		self.assertTrue(request['response_format']['json_schema']['strict'])
+		self.assertEqual(request['messages'][1]['content'], 'Jordan Candidate\n\nPython')
+		self.assertEqual(result['personal_info']['name'], 'Test User')
+
+	@patch('resumes.views.GroqResumeAnalyzer.analyze_resume', side_effect=ResumeTextTooLarge)
+	def test_oversized_resume_is_not_silently_truncated(self, analyze_resume):
+		resume = self.create_owned_resume()
+
+		response = self.client.post(
+			reverse('resumes:resume_analyze', args=[resume.pk]),
+			follow=True,
+		)
+
+		self.assertContains(response, 'This resume is too large to analyze in one request.')
+		self.assertFalse(ResumeAnalysis.objects.filter(resume=resume).exists())
+
+	def test_analysis_page_displays_structured_sections_not_raw_json(self):
+		resume = self.create_owned_resume()
+		ResumeAnalysis.objects.create(resume=resume, **sample_analysis())
+
+		response = self.client.get(reverse('resumes:resume_analysis', args=[resume.pk]))
+
+		self.assertContains(response, 'Personal Information')
+		self.assertContains(response, 'Professional Summary')
+		self.assertContains(response, 'Test User')
+		self.assertContains(response, 'Python')
+		self.assertNotContains(response, 'personal_info":')
+
+	def test_resume_list_and_dashboard_show_analysis_status_and_counts(self):
+		analyzed_resume = self.create_owned_resume(filename='analyzed.pdf')
+		ResumeAnalysis.objects.create(resume=analyzed_resume, **sample_analysis())
+		pending_resume = self.create_owned_resume(filename='pending.pdf')
+
+		list_response = self.client.get(self.upload_url())
+		dashboard_response = self.client.get(reverse('dashboard'))
+
+		self.assertContains(list_response, 'Analysis available')
+		self.assertContains(list_response, 'Not analyzed')
+		self.assertContains(list_response, 'View Analysis')
+		self.assertContains(list_response, 'Re-analyze Resume')
+		self.assertContains(list_response, 'Analyze Resume')
+		self.assertContains(dashboard_response, 'Total Resumes: 2')
+		self.assertContains(dashboard_response, 'Analyzed Resumes: 1')
+		self.assertEqual(ResumeAnalysis.objects.filter(resume=pending_resume).count(), 0)
+
 	def create_owned_resume(self, user=None, filename='candidate.pdf', extracted_text='Resume text'):
 		user = user or self.user
 		return Resume.objects.create(
@@ -239,5 +478,27 @@ class ResumeFlowTests(TestCase):
 			file_size=20,
 			extracted_text=extracted_text,
 		)
+
+
+def sample_analysis(summary='Python developer'):
+	return {
+		'personal_info': {
+			'name': 'Test User',
+			'email': 'test@example.com',
+			'phone': None,
+			'location': None,
+			'linkedin': None,
+			'github': None,
+			'portfolio': None,
+		},
+		'summary': summary,
+		'skills': ['Python', 'Django'],
+		'education': [],
+		'experience': [],
+		'projects': [],
+		'certifications': [],
+		'languages': ['English'],
+		'keywords': ['Python', 'Django'],
+	}
 
 # Create your tests here.

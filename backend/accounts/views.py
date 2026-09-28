@@ -39,7 +39,11 @@ def dashboard(request):
     return render(
         request,
         'accounts/dashboard.html',
-        {'profile': profile, 'resume_count': request.user.resumes.count()},
+        {
+            'profile': profile,
+            'resume_count': request.user.resumes.count(),
+            'analyzed_resume_count': request.user.resumes.filter(analysis__isnull=False).count(),
+        },
     )
 
 
