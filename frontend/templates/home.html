@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Home | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="setup-page">
+        <p class="eyebrow">Phase 2 · Account foundation</p>
+        <h1>AI Job Application Assistant</h1>
+        <p class="description">A private workspace for preparing your next career move.</p>
+        <p class="status">Project setup successful</p>
+        <div class="action-row">
+            <a class="button button-primary" href="{% url 'register' %}">Create an account</a>
+            <a class="text-link" href="{% url 'health' %}">Service health</a>
+        </div>
+    </section>
+{% endblock %}

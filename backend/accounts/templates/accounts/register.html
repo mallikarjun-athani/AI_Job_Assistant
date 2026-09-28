@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Create account | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="auth-layout">
+        <div class="auth-intro">
+            <p class="eyebrow">Get started</p>
+            <h1>Your next move starts here.</h1>
+            <p class="description">Create an account to set up your private job-search workspace.</p>
+        </div>
+        <div class="form-panel">
+            <h2>Create your account</h2>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+                {% include "partials/form_fields.html" with form=form %}
+                <button class="button button-primary button-wide" type="submit">Create account</button>
+            </form>
+            <p class="form-footer">Already registered? <a href="{% url 'login' %}">Log in</a></p>
+        </div>
+    </section>
+{% endblock %}

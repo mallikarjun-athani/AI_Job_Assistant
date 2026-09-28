@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Your workspace</p>
+            <h1>Welcome, {{ user.first_name|default:user.email }}</h1>
+            <p class="description">Your account is ready. Add a few profile details to get started.</p>
+        </div>
+        <a class="button button-secondary" href="{% url 'profile' %}">Edit profile</a>
+    </section>
+
+    <section class="dashboard-overview" aria-label="Account overview">
+        <div class="overview-item">
+            <span class="item-label">Email</span>
+            <strong>{{ user.email }}</strong>
+        </div>
+        <div class="overview-item">
+            <span class="item-label">Location</span>
+            <strong>{{ profile.location|default:"Not added yet" }}</strong>
+        </div>
+        <div class="overview-item completion-item">
+            <div class="completion-heading">
+                <span class="item-label">Profile completion</span>
+                <strong>{{ profile.completion_percentage }}%</strong>
+            </div>
+            <div class="progress-track" role="progressbar" aria-label="Profile completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ profile.completion_percentage }}">
+                <span style="width: {{ profile.completion_percentage }}%"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="feature-section">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Workspace</p>
+                <h2>Tools for your search</h2>
+            </div>
+        </div>
+        <div class="feature-grid">
+            <article class="feature-item"><span class="feature-index">01</span><h3>Resume Analysis</h3><p>Not available in this phase</p></article>
+            <article class="feature-item"><span class="feature-index">02</span><h3>Job Matching</h3><p>Not available in this phase</p></article>
+            <article class="feature-item"><span class="feature-index">03</span><h3>AI Resume</h3><p>Not available in this phase</p></article>
+            <article class="feature-item"><span class="feature-index">04</span><h3>Cover Letter</h3><p>Not available in this phase</p></article>
+            <article class="feature-item"><span class="feature-index">05</span><h3>Applications</h3><p>Not available in this phase</p></article>
+        </div>
+    </section>
+{% endblock %}

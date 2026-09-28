@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Login | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="auth-layout auth-layout-single">
+        <div class="form-panel">
+            <p class="eyebrow">Welcome back</p>
+            <h1>Log in</h1>
+            <p class="description">Continue to your career workspace.</p>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+                {% include "partials/form_fields.html" with form=form %}
+                <button class="button button-primary button-wide" type="submit">Log in</button>
+            </form>
+            <p class="form-footer">New here? <a href="{% url 'register' %}">Create an account</a></p>
+        </div>
+    </section>
+{% endblock %}
