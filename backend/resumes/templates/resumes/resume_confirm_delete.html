@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Resume | My Resumes{% endblock %}
+
+{% block content %}
+    <section class="form-panel resume-delete-panel">
+        <p class="eyebrow">Remove document</p>
+        <h1>Delete resume?</h1>
+        <p class="description">Are you sure you want to delete this resume? The uploaded file and extracted text will be permanently removed.</p>
+        <p><strong>{{ resume.original_filename }}</strong></p>
+        <form method="post" class="form-actions">
+            {% csrf_token %}
+            <button class="button button-danger" type="submit">Delete Resume</button>
+            <a class="button button-secondary" href="{% url 'resumes:resume_detail' resume.pk %}">Cancel</a>
+        </form>
+    </section>
+{% endblock %}
