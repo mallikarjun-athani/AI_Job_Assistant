@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Jobs | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Career opportunities</p>
+        <h1>Recommended Job Opportunities</h1>
+    </div>
+</section>
+
+<section class="filter-card" aria-label="Job filters">
+    <form method="get" class="job-filters">
+        <div>
+            <label for="location">Location</label>
+            <input id="location" type="text" name="location" value="{{ filters.location }}">
+        </div>
+        <div>
+            <label for="employment_type">Employment Type</label>
+            <input id="employment_type" type="text" name="employment_type" value="{{ filters.employment_type }}">
+        </div>
+        <div>
+            <label for="experience_level">Experience Level</label>
+            <input id="experience_level" type="text" name="experience_level" value="{{ filters.experience_level }}">
+        </div>
+        <div>
+            <label for="source">Source</label>
+            <input id="source" type="text" name="source" value="{{ filters.source }}">
+        </div>
+        <button type="submit" class="button">Apply Filters</button>
+    </form>
+</section>
+
+{% if discovery_summary %}
+    <p class="discovery-summary">{{ discovery_summary }}</p>
+{% endif %}
+
+{% if jobs %}
+    <div class="job-list">
+        {% for job in jobs %}
+            <article class="job-card">
+                <div class="job-card-header">
+                    <h2>{{ job.title }}</h2>
+                    <span class="job-source">{{ job.source }}</span>
+                </div>
+                <p class="job-company">{{ job.company_name }}</p>
+                <p class="job-meta">{{ job.location }}</p>
+                {% if job.employment_type %}<p class="job-meta">{{ job.employment_type }}</p>{% endif %}
+                {% if job.posted_at %}<p class="job-meta">Posted: {{ job.posted_at|date:"M d, Y" }}</p>{% endif %}
+                <div class="job-actions">
+                    <a class="button button-secondary" href="{% url 'jobs:job_detail' job.pk %}">View Job</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+
+    {% if page_obj %}
+    <nav class="pagination" aria-label="Job pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        {% for page_number in page_obj.paginator.page_range %}
+            {% if page_number == page_obj.number %}
+                <span class="current-page">Page {{ page_number }}</span>
+            {% else %}
+                <a href="?page={{ page_number }}">{{ page_number }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+{% else %}
+    <p class="empty-state">No jobs were found for your current resume profile.</p>
+{% endif %}
+{% endblock %}

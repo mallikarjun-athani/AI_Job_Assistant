@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ job.title }} | Job Detail{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Job details</p>
+        <h1>{{ job.title }}</h1>
+    </div>
+</section>
+
+<article class="job-detail-card">
+    <p><strong>Company:</strong> {{ job.company_name }}</p>
+    <p><strong>Location:</strong> {{ job.location }}</p>
+    {% if job.employment_type %}<p><strong>Employment Type:</strong> {{ job.employment_type }}</p>{% endif %}
+    {% if job.experience_level %}<p><strong>Experience Level:</strong> {{ job.experience_level }}</p>{% endif %}
+    {% if job.salary_min or job.salary_max %}
+        <p><strong>Salary:</strong>
+            {% if job.salary_currency %}{{ job.salary_currency }} {% endif %}
+            {% if job.salary_min %}{{ job.salary_min }}{% endif %}
+            {% if job.salary_min and job.salary_max %} - {% endif %}
+            {% if job.salary_max %}{{ job.salary_max }}{% endif %}
+        </p>
+    {% endif %}
+    {% if job.posted_at %}<p><strong>Posted Date:</strong> {{ job.posted_at|date:"M d, Y" }}</p>{% endif %}
+    <p><strong>Source:</strong> {{ job.source }}</p>
+    {% if job.description %}<div class="job-description"><strong>Job Description:</strong><p>{{ job.description|linebreaksbr }}</p></div>{% endif %}
+    {% if safe_url %}
+        <p><a class="button" href="{{ safe_url }}" target="_blank" rel="noopener noreferrer">Apply / View Original Job</a></p>
+    {% else %}
+        <p class="muted">Original job link is unavailable.</p>
+    {% endif %}
+</article>
+{% endblock %}

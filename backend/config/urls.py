@@ -19,6 +19,7 @@ from django.urls import include, path
 from config import views
 
 urlpatterns = [
+    path('jobs/', include('jobs.urls')),
     path('resumes/', include('resumes.urls')),
     path('', include('accounts.urls')),
     path('', views.home, name='home'),

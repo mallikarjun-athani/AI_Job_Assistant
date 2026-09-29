@@ -36,6 +36,10 @@ class UserLoginView(LoginView):
 @login_required
 def dashboard(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
+    latest_resume = request.user.resumes.filter(analysis__isnull=False).select_related('analysis').order_by('-uploaded_at').first()
+    detected_roles = []
+    if latest_resume and latest_resume.analysis:
+        detected_roles = list(latest_resume.analysis.target_roles or [])[:5]
     return render(
         request,
         'accounts/dashboard.html',
@@ -43,6 +47,8 @@ def dashboard(request):
             'profile': profile,
             'resume_count': request.user.resumes.count(),
             'analyzed_resume_count': request.user.resumes.filter(analysis__isnull=False).count(),
+            'latest_resume': latest_resume,
+            'detected_roles': detected_roles,
         },
     )
 

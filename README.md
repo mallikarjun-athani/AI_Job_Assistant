@@ -4,7 +4,7 @@
 A full-stack AI-powered platform for analyzing resumes, matching candidates with jobs, generating job-specific resumes and cover letters, and tracking applications.
 
 ## Current Phase
-Phase 4 - Groq AI Resume Analyzer
+Phase 5 - Real Job Discovery
 
 The foundation includes a custom email-based user model, registration, login, protected dashboard, profile editing, password changes, and logout. Phase 3 adds private PDF/DOCX resume uploads and text extraction. Phase 4 adds owner-protected, Groq-powered structured resume analysis. Job matching, resume generation, cover letters, and application tracking are not implemented in this phase.
 
@@ -144,6 +144,15 @@ python manage.py test
 ```
 
 The test suite mocks the analyzer/Groq SDK and makes no real API requests. New routes are `/resumes/<id>/analyze/` (POST only) and `/resumes/<id>/analysis/` (owner-only page).
+
+## Phase 5 — Real Job Discovery
+- Adzuna is the initial job data provider and is isolated behind a dedicated provider layer in `backend/jobs/providers/`.
+- `.env` and `.env.example` include `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY`, and `ADZUNA_BASE_URL`; values remain server-side and are never exposed to the browser.
+- Discovery starts from the latest analyzed resume and the user profile location; it builds up to five de-duplicated job search queries from `ResumeAnalysis.target_roles` plus fallback skills/keywords.
+- Search results are normalized into a shared internal `Job` model, stored in PostgreSQL, and deduplicated by `provider + external_id` before a new record is created.
+- The project stores only the normalized fields it needs for display and future matching, while `raw_data` keeps the provider payload as a structured JSON record for debugging.
+- Users click a dashboard action to trigger a discovery request; the request does not run on page refresh or dashboard load and does not call the AI API for job matching.
+- Phase 5 discovers and stores real jobs. Job matching and match scores are implemented in Phase 6.
 
 ## Phase 2 URLs
 - `/register/` creates an account and profile, then signs the user in.
