@@ -3,7 +3,7 @@ ANALYSIS_JSON_SCHEMA = {
     'additionalProperties': False,
     'required': [
         'personal_info', 'summary', 'skills', 'education', 'experience',
-        'projects', 'certifications', 'languages', 'keywords',
+        'projects', 'certifications', 'languages', 'keywords', 'target_roles',
     ],
     'properties': {
         'personal_info': {

@@ -45,17 +45,32 @@ def generate_search_queries(analysis_data, limit=None):
     candidates = []
 
     analysis = analysis_data if isinstance(analysis_data, dict) else {}
-    for role in analysis.get('target_roles') or []:
-        cleaned = ' '.join(str(role).split())
-        if cleaned:
-            candidates.append(cleaned)
 
-    if not candidates:
-        for field in ('skills', 'keywords'):
-            for item in analysis.get(field) or []:
-                cleaned = ' '.join(str(item).split())
-                if cleaned:
-                    candidates.append(cleaned)
+    def add_candidate(value):
+        if value is None:
+            return
+        if isinstance(value, str):
+            cleaned = ' '.join(value.split())
+            if cleaned:
+                candidates.append(cleaned)
+            return
+        if isinstance(value, dict):
+            for key in ('job_title', 'title', 'role', 'name', 'position'):
+                if key in value:
+                    add_candidate(value.get(key))
+            for key in ('skills', 'technologies'):
+                if key in value:
+                    add_candidate(value.get(key))
+            return
+        if isinstance(value, list):
+            for item in value:
+                add_candidate(item)
+
+    for field in ('target_roles', 'experience'):
+        add_candidate(analysis.get(field))
+
+    for field in ('skills', 'keywords'):
+        add_candidate(analysis.get(field))
 
     unique_queries = []
     seen = set()
@@ -162,5 +177,10 @@ def discover_jobs_for_user(user, provider=None):
         collected_jobs.extend(result)
 
     saved_count = discover_jobs_for_resume(resume, collected_jobs, provider='adzuna')
+    if saved_count == 0:
+        raise JobDiscoveryError(
+            f'No jobs were found for your resume profile using the location "{location}". '
+            'Try simplifying your profile location (e.g. use "Bengaluru" instead of a full address) and try again.'
+        )
     jobs = Job.objects.order_by('-last_seen_at')[:20]
     return saved_count, jobs, queries, location

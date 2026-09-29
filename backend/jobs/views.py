@@ -82,20 +82,6 @@ def discover_jobs(request):
             },
         )
 
-    if saved_count == 0:
-        messages.error(request, 'No jobs were found for your current resume profile.')
-        return render(
-            request,
-            'jobs/job_list.html',
-            {
-                'jobs': [],
-                'page_obj': None,
-                'total_jobs': 0,
-                'discovery_summary': 'No jobs were found for your current resume profile.',
-                'queries': queries,
-                'location': location,
-            },
-        )
 
     messages.success(request, f'{saved_count} jobs found')
     return render(

@@ -14,19 +14,19 @@
     <form method="get" class="job-filters">
         <div>
             <label for="location">Location</label>
-            <input id="location" type="text" name="location" value="{{ filters.location }}">
+            <input id="location" type="text" name="location" value="{{ filters.location }}" placeholder="Bangalore">
         </div>
         <div>
             <label for="employment_type">Employment Type</label>
-            <input id="employment_type" type="text" name="employment_type" value="{{ filters.employment_type }}">
+            <input id="employment_type" type="text" name="employment_type" value="{{ filters.employment_type }}" placeholder="Full-time">
         </div>
         <div>
             <label for="experience_level">Experience Level</label>
-            <input id="experience_level" type="text" name="experience_level" value="{{ filters.experience_level }}">
+            <input id="experience_level" type="text" name="experience_level" value="{{ filters.experience_level }}" placeholder="Fresher">
         </div>
         <div>
             <label for="source">Source</label>
-            <input id="source" type="text" name="source" value="{{ filters.source }}">
+            <input id="source" type="text" name="source" value="{{ filters.source }}" placeholder="Adzuna">
         </div>
         <button type="submit" class="button">Apply Filters</button>
     </form>
@@ -73,6 +73,10 @@
     </nav>
     {% endif %}
 {% else %}
-    <p class="empty-state">No jobs were found for your current resume profile.</p>
+    {% if filters.location or filters.employment_type or filters.experience_level or filters.source %}
+        <p class="empty-state">No jobs found matching your filters.</p>
+    {% else %}
+        <p class="empty-state">No jobs were found for your current resume profile.</p>
+    {% endif %}
 {% endif %}
 {% endblock %}

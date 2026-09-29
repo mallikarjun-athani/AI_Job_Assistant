@@ -188,6 +188,22 @@ class JobDiscoveryTests(TestCase):
         self.assertEqual(len(set(queries)), len(queries))
         self.assertIn('Python Developer', queries)
 
+    def test_search_queries_use_experience_titles_when_target_roles_are_missing(self):
+        analysis = {
+            'target_roles': [],
+            'skills': ['Python', 'Django'],
+            'keywords': ['backend'],
+            'experience': [
+                {'job_title': 'Python Developer'},
+                {'job_title': 'Backend Engineer'},
+            ],
+        }
+
+        queries = generate_search_queries(analysis)
+
+        self.assertIn('Python Developer', queries)
+        self.assertIn('Backend Engineer', queries)
+
     @patch('jobs.providers.adzuna.requests.get')
     def test_api_timeout_is_handled(self, mock_get):
         from requests import Timeout
