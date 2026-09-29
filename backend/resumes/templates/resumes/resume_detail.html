@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{{ resume.original_filename }} | My Resumes{% endblock %}
+
+{% block content %}
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Resume details</p>
+            <h1>{{ resume.original_filename }}</h1>
+        </div>
+        <div class="resume-actions">
+            <a class="button button-secondary" href="{% url 'resumes:resume_list' %}">Back to resumes</a>
+            {% if file_available %}<a class="button button-primary" href="{% url 'resumes:resume_download' resume.pk %}">Download Resume</a>{% endif %}
+        </div>
+    </section>
+
+    {% if not file_available %}<p class="message error" role="alert">The original resume file is unavailable.</p>{% endif %}
+
+    <section class="resume-overview" aria-label="Resume information">
+        <div><span class="item-label">File type</span><strong>{{ resume.file_type }}</strong></div>
+        <div><span class="item-label">File size</span><strong>{{ resume.file_size_display }}</strong></div>
+        <div><span class="item-label">Uploaded</span><strong>{{ resume.uploaded_at|date:"j M Y, H:i" }}</strong></div>
+        <div><span class="item-label">Updated</span><strong>{{ resume.updated_at|date:"j M Y, H:i" }}</strong></div>
+    </section>
+
+    <section class="extracted-text-section">
+        <div class="section-heading"><h2>Extracted Text</h2></div>
+        <pre class="extracted-text">{{ resume.extracted_text }}</pre>
+    </section>
+{% endblock %}

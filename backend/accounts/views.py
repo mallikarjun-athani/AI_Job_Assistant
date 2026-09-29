@@ -36,7 +36,15 @@ class UserLoginView(LoginView):
 @login_required
 def dashboard(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
-    return render(request, 'accounts/dashboard.html', {'profile': profile})
+    return render(
+        request,
+        'accounts/dashboard.html',
+        {
+            'profile': profile,
+            'resume_count': request.user.resumes.count(),
+            'analyzed_resume_count': request.user.resumes.filter(analysis__isnull=False).count(),
+        },
+    )
 
 
 @login_required

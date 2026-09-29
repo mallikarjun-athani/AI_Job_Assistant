@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}My Resumes | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Your documents</p>
+            <h1>My Resumes</h1>
+            <p class="description">Upload and manage your PDF and DOCX resumes.</p>
+        </div>
+    </section>
+
+    <section class="resume-upload" aria-labelledby="upload-heading">
+        <div class="section-heading">
+            <p class="eyebrow">Add a document</p>
+            <h2 id="upload-heading">Upload Resume</h2>
+        </div>
+        <form method="post" enctype="multipart/form-data" class="resume-upload-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-field">
+                <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+                {{ form.file }}
+                <p class="field-help">Supported formats: PDF, DOCX. Maximum file size: 5 MB.</p>
+                {% for error in form.file.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+            <button class="button button-primary" type="submit">Upload Resume</button>
+        </form>
+    </section>
+
+    <section class="resume-section" aria-labelledby="resumes-heading">
+        <div class="section-heading resume-list-heading">
+            <h2 id="resumes-heading">Your documents</h2>
+            <span class="resume-count">{{ resumes|length }} total</span>
+        </div>
+        {% if resumes %}
+            <div class="resume-list">
+                {% for resume in resumes %}
+                    <article class="resume-item">
+                        <div class="resume-metadata">
+                            <h3>{{ resume.original_filename }}</h3>
+                            <p>{{ resume.file_type }} <span aria-hidden="true">·</span> {{ resume.file_size_display }} <span aria-hidden="true">·</span> Uploaded {{ resume.uploaded_at|date:"j M Y" }}</p>
+                            <p class="analysis-status">{% if resume.analysis %}Analysis available{% else %}Not analyzed{% endif %}</p>
+                        </div>
+                        <div class="resume-actions">
+                            <a class="button button-secondary" href="{% url 'resumes:resume_detail' resume.pk %}">View</a>
+                            <a class="button button-secondary" href="{% url 'resumes:resume_download' resume.pk %}">Download</a>
+                            <a class="button button-danger" href="{% url 'resumes:resume_delete' resume.pk %}">Delete</a>
+                            {% if resume.analysis %}<a class="button button-secondary" href="{% url 'resumes:resume_analysis' resume.pk %}">View Analysis</a>{% endif %}
+                            <form class="analysis-form" method="post" action="{% url 'resumes:resume_analyze' resume.pk %}" data-analysis-form>
+                                {% csrf_token %}
+                                <button class="button button-primary" type="submit">{% if resume.analysis %}Re-analyze Resume{% else %}Analyze Resume{% endif %}</button>
+                                <span class="analysis-loading" role="status" aria-live="polite" hidden>Analyzing your resume... Extracting skills, education, experience and projects...</span>
+                            </form>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="resume-empty">
+                <h3>No resumes uploaded yet.</h3>
+                <p>Upload your first resume to start using the AI Job Application Assistant.</p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/resume-analysis.js' %}" defer></script>{% endblock %}

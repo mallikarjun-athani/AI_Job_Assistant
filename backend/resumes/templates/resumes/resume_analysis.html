@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Resume Analysis | AI Job Application Assistant{% endblock %}
+
+{% block content %}
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Groq AI Resume Analysis</p>
+            <h1>{{ resume.original_filename }}</h1>
+            <p class="description">Structured information extracted from your resume.</p>
+        </div>
+        <div class="resume-actions">
+            <a class="button button-secondary" href="{% url 'resumes:resume_list' %}">Back to resumes</a>
+            <form method="post" action="{% url 'resumes:resume_analyze' resume.pk %}" data-analysis-form>
+                {% csrf_token %}
+                <button class="button button-primary" type="submit">Re-analyze Resume</button>
+                <span class="analysis-loading" role="status" aria-live="polite" hidden>Analyzing your resume... Extracting skills, education, experience and projects...</span>
+            </form>
+        </div>
+    </section>
+
+    <div class="analysis-layout">
+        <section class="analysis-section" aria-labelledby="personal-heading">
+            <h2 id="personal-heading">Personal Information</h2>
+            <dl class="analysis-personal">
+                <div><dt>Name</dt><dd>{{ analysis.personal_info.name|default:"Not provided" }}</dd></div>
+                <div><dt>Email</dt><dd>{{ analysis.personal_info.email|default:"Not provided" }}</dd></div>
+                <div><dt>Phone</dt><dd>{{ analysis.personal_info.phone|default:"Not provided" }}</dd></div>
+                <div><dt>Location</dt><dd>{{ analysis.personal_info.location|default:"Not provided" }}</dd></div>
+                <div><dt>LinkedIn</dt><dd>{{ analysis.personal_info.linkedin|default:"Not provided" }}</dd></div>
+                <div><dt>GitHub</dt><dd>{{ analysis.personal_info.github|default:"Not provided" }}</dd></div>
+                <div><dt>Portfolio</dt><dd>{{ analysis.personal_info.portfolio|default:"Not provided" }}</dd></div>
+            </dl>
+        </section>
+
+        <section class="analysis-section" aria-labelledby="summary-heading">
+            <h2 id="summary-heading">Professional Summary</h2>
+            {% if analysis.summary %}<p class="analysis-copy">{{ analysis.summary }}</p>{% else %}<p class="analysis-muted">Not provided</p>{% endif %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="skills-heading">
+            <h2 id="skills-heading">Skills</h2>
+            {% if analysis.skills %}<ul class="analysis-badges">{% for skill in analysis.skills %}<li>{{ skill }}</li>{% endfor %}</ul>{% else %}<p class="analysis-muted">No skills identified.</p>{% endif %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="education-heading">
+            <h2 id="education-heading">Education</h2>
+            {% for item in analysis.education %}
+                <article class="analysis-entry">
+                    <h3>{{ item.degree|default:"Education" }}</h3>
+                    <p>{{ item.institution|default:"Institution not provided" }}{% if item.location %} · {{ item.location }}{% endif %}</p>
+                    <p class="analysis-muted">{% if item.start_date %}{{ item.start_date }}{% endif %}{% if item.start_date and item.end_date %} – {% endif %}{% if item.end_date %}{{ item.end_date }}{% endif %}{% if item.grade %} · {{ item.grade }}{% endif %}</p>
+                </article>
+            {% empty %}<p class="analysis-muted">No education identified.</p>{% endfor %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="experience-heading">
+            <h2 id="experience-heading">Experience</h2>
+            {% for item in analysis.experience %}
+                <article class="analysis-entry">
+                    <h3>{{ item.job_title|default:"Role not provided" }}</h3>
+                    <p>{{ item.company|default:"Company not provided" }}{% if item.location %} · {{ item.location }}{% endif %}</p>
+                    <p class="analysis-muted">{% if item.start_date %}{{ item.start_date }}{% endif %}{% if item.start_date and item.end_date %} – {% endif %}{% if item.end_date %}{{ item.end_date }}{% endif %}</p>
+                    {% if item.description %}<ul>{% for point in item.description %}<li>{{ point }}</li>{% endfor %}</ul>{% endif %}
+                    {% if item.skills %}<ul class="analysis-badges">{% for skill in item.skills %}<li>{{ skill }}</li>{% endfor %}</ul>{% endif %}
+                </article>
+            {% empty %}<p class="analysis-muted">No experience identified.</p>{% endfor %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="projects-heading">
+            <h2 id="projects-heading">Projects</h2>
+            {% for item in analysis.projects %}
+                <article class="analysis-entry">
+                    <h3>{{ item.name|default:"Project" }}</h3>
+                    {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+                    {% if item.technologies %}<ul class="analysis-badges">{% for technology in item.technologies %}<li>{{ technology }}</li>{% endfor %}</ul>{% endif %}
+                    {% if item.url %}<p class="analysis-muted">{{ item.url }}</p>{% endif %}
+                </article>
+            {% empty %}<p class="analysis-muted">No projects identified.</p>{% endfor %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="certifications-heading">
+            <h2 id="certifications-heading">Certifications</h2>
+            {% for item in analysis.certifications %}
+                <article class="analysis-entry">
+                    <h3>{{ item.name|default:"Certification" }}</h3>
+                    <p>{{ item.issuer|default:"Issuer not provided" }}{% if item.date %} · {{ item.date }}{% endif %}</p>
+                    {% if item.credential_url %}<p class="analysis-muted">{{ item.credential_url }}</p>{% endif %}
+                </article>
+            {% empty %}<p class="analysis-muted">No certifications identified.</p>{% endfor %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="languages-heading">
+            <h2 id="languages-heading">Languages</h2>
+            {% if analysis.languages %}<ul class="analysis-badges">{% for language in analysis.languages %}<li>{{ language }}</li>{% endfor %}</ul>{% else %}<p class="analysis-muted">No languages identified.</p>{% endif %}
+        </section>
+
+        <section class="analysis-section" aria-labelledby="keywords-heading">
+            <h2 id="keywords-heading">Keywords</h2>
+            {% if analysis.keywords %}<ul class="analysis-badges">{% for keyword in analysis.keywords %}<li>{{ keyword }}</li>{% endfor %}</ul>{% else %}<p class="analysis-muted">No keywords identified.</p>{% endif %}
+        </section>
+    </div>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/resume-analysis.js' %}" defer></script>{% endblock %}
