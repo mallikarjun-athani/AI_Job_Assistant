@@ -52,6 +52,7 @@ class ResumeAnalysis(models.Model):
 	certifications = models.JSONField(default=list)
 	languages = models.JSONField(default=list)
 	keywords = models.JSONField(default=list)
+	target_roles = models.JSONField(default=list)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 

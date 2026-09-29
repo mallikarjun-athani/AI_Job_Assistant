@@ -3,7 +3,7 @@ ANALYSIS_JSON_SCHEMA = {
     'additionalProperties': False,
     'required': [
         'personal_info', 'summary', 'skills', 'education', 'experience',
-        'projects', 'certifications', 'languages', 'keywords',
+        'projects', 'certifications', 'languages', 'keywords', 'target_roles',
     ],
     'properties': {
         'personal_info': {
@@ -78,6 +78,7 @@ ANALYSIS_JSON_SCHEMA = {
         },
         'languages': {'type': 'array', 'items': {'type': 'string'}},
         'keywords': {'type': 'array', 'items': {'type': 'string'}},
+        'target_roles': {'type': 'array', 'items': {'type': 'string'}},
     },
 }
 
@@ -108,7 +109,11 @@ def validate_analysis_data(data):
         'personal_info', 'summary', 'skills', 'education', 'experience',
         'projects', 'certifications', 'languages', 'keywords',
     )
-    _validate_object(data, top_level_fields, 'analysis')
+    if 'target_roles' in data:
+        _validate_text_list(data['target_roles'], 'target_roles')
+    else:
+        data['target_roles'] = []
+    _validate_object(data, top_level_fields + ('target_roles',), 'analysis')
     _validate_object(
         data['personal_info'],
         ('name', 'email', 'phone', 'location', 'linkedin', 'github', 'portfolio'),

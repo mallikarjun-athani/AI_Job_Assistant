@@ -29,6 +29,13 @@ DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-20b')
+ADZUNA_APP_ID = os.getenv('ADZUNA_APP_ID', '')
+ADZUNA_APP_KEY = os.getenv('ADZUNA_APP_KEY', '')
+ADZUNA_COUNTRY = os.getenv('ADZUNA_COUNTRY', 'in')
+ADZUNA_BASE_URL = os.getenv('ADZUNA_BASE_URL', 'https://api.adzuna.com/v1/api')
+ADZUNA_REQUEST_TIMEOUT = float(os.getenv('ADZUNA_REQUEST_TIMEOUT', '10'))
+JOB_DISCOVERY_MAX_QUERIES = int(os.getenv('JOB_DISCOVERY_MAX_QUERIES', '5'))
+JOB_DISCOVERY_JOBS_PER_QUERY = int(os.getenv('JOB_DISCOVERY_JOBS_PER_QUERY', '10'))
 
 
 # Application definition
